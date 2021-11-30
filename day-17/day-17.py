@@ -8,28 +8,35 @@ def unique(array):
 def flatten(array):
     return list(chain(*array))
 
-def neighbors(key):
-    x, y, z = key
-    deltas = [-1, 0, 1]
-    directions_nested = [[[(x + dx, y + dy, z + dz) for dz in deltas] for dy in deltas] for dx in deltas]
-    directions_flat = flatten(flatten(directions_nested))
-    directions_filtered = filter(lambda delta: delta != (x, y, z), directions_flat)
+def neighbors(key, dimensions):
+    if dimensions == 4:
+        x, y, z, w = key
+        deltas = [-1, 0, 1]
+        directions_nested = [[[[(x + dx, y + dy, z + dz, w + dw) for dw in deltas] for dz in deltas] for dy in deltas] for dx in deltas]
+        directions_flat = flatten(flatten(flatten(directions_nested)))
+        directions_filtered = filter(lambda delta: delta != (x, y, z, w), directions_flat)
+    else:
+        x, y, z = key
+        deltas = [-1, 0, 1]
+        directions_nested = [[[(x + dx, y + dy, z + dz) for dz in deltas] for dy in deltas] for dx in deltas]
+        directions_flat = flatten(flatten(directions_nested))
+        directions_filtered = filter(lambda delta: delta != (x, y, z), directions_flat)
     return directions_filtered
 
-def parse_input_to_grid(input):
+def parse_input_to_grid(input, dimensions):
     grid = {}
     lines = input.split('\n')
     for y, line in enumerate(lines):
         for x, val in enumerate(line):
-            key = (x, y, 0)
+            key = (x, y, 0, 0) if dimensions == 4 else (x, y, 0)
             grid[key] = val
     return grid
 
-def candidates(grid):
-    return unique(flatten([neighbors(key) for key in grid.keys()]))
+def candidates(grid, dimensions):
+    return unique(flatten([neighbors(key, dimensions) for key in grid.keys()]))
 
-def active(grid, key):
-    candidate_neighbors = neighbors(key)
+def active(grid, key, dimensions):
+    candidate_neighbors = neighbors(key, dimensions)
     active_neighbors = 0
     for neighbor in candidate_neighbors:
         neighbor_active = grid[neighbor] == "#" if grid.has_key(neighbor) else False
@@ -56,13 +63,13 @@ def trim_grid(grid):
     trim_side(grid, 2, 1)
     return grid
 
-def epoch(grid):
-    new_candidates = candidates(grid)
+def epoch(grid, dimensions):
+    new_candidates = candidates(grid, dimensions)
     new_grid = {}
     for key in new_candidates:
-        candidate_active = active(grid, key)
+        candidate_active = active(grid, key, dimensions)
         new_grid[key] = '#' if candidate_active else '.'
-    return trim_grid(new_grid)
+    return new_grid
 
 def get_bounds(grid, x):
     bounds = sorted(map(lambda key: key[x], grid.keys()))
@@ -83,23 +90,31 @@ def grid_to_string(grid):
         grid_output += '\n'
     return grid_output
 
-def epochs(grid, times):
+def epochs(grid, times, dimensions):
     new_grid = grid
     for _ in range(times):
-        new_grid = epoch(new_grid)
+        new_grid = epoch(new_grid, dimensions)
+        new_grid = trim_grid(new_grid)
     return new_grid
 
 def count_active(grid):
     return len(filter(lambda val: val == "#", grid.values()))
 
-def solve_part_1(input):
-    grid = parse_input_to_grid(input)
-    active = count_active(epochs(grid, 6))
+def solve(input, dimensions):
+    grid = parse_input_to_grid(input, dimensions)
+    active = count_active(epochs(grid, 6, dimensions))
     return active
+
+def solve_part_1(input):
+    return solve(input, 3)
+
+def solve_part_2(input):
+    return solve(input, 4)
 
 with open("./input.txt") as f:
     file = f.read()
     print(solve_part_1(file))
+    print(solve_part_2(file))
 
 ### TESTS
 
@@ -115,19 +130,20 @@ sample_neighbors = [(0, 1, 2), (0, 1, 3), (0, 1, 4), (0, 2, 2), (0, 2, 3), (0, 2
 sample_grid_string = 'z=0\n.#.\n..#\n###\n\n'
 
 class Test(unittest.TestCase):
-
     def test_parse_input_to_grid(self):
-        self.assertEqual(parse_input_to_grid(sample), sample_grid)
+        self.assertEqual(parse_input_to_grid(sample, 3), sample_grid)
 
     def test_neighbors(self):
-        self.assertEqual(neighbors((1, 2, 3)), sample_neighbors)
+        self.assertEqual(neighbors((1, 2, 3), 3), sample_neighbors)
 
     def test_grid_to_string(self):
-        grid = parse_input_to_grid(sample)
+        grid = parse_input_to_grid(sample, 3)
         self.assertEqual(grid_to_string(grid), sample_grid_string)
 
     def test_solve_part_1(self):
         self.assertEqual(solve_part_1(sample), 112)
-        pass
+
+    def test_solve_part_2(self):
+        self.assertEqual(solve_part_2(sample), 848)
 
 unittest.main()
