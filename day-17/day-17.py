@@ -1,25 +1,19 @@
 from itertools import chain
 import unittest
+import cProfile
 
 def unique(array):
-    unique = []
-    for val in array:
-        if val not in unique:
-            unique.append(val)
-    return unique
+    return list(set(array))
 
 def flatten(array):
     return list(chain(*array))
 
-def make_key(c):
-    return "{},{},{}".format(c[0], c[1], c[2])
-
 def neighbors(key):
-    [x, y, z] = map(int, key.split(','))
+    x, y, z = key
     deltas = [-1, 0, 1]
-    directions_nested = [[[[x + dx, y + dy, z + dz] for dz in deltas] for dy in deltas] for dx in deltas]
+    directions_nested = [[[(x + dx, y + dy, z + dz) for dz in deltas] for dy in deltas] for dx in deltas]
     directions_flat = flatten(flatten(directions_nested))
-    directions_filtered = filter(lambda delta: delta != [x, y, z], directions_flat)
+    directions_filtered = filter(lambda delta: delta != (x, y, z), directions_flat)
     return directions_filtered
 
 def parse_input_to_grid(input):
@@ -27,7 +21,7 @@ def parse_input_to_grid(input):
     lines = input.split('\n')
     for y, line in enumerate(lines):
         for x, val in enumerate(line):
-            key = "{},{},0".format(x, y)
+            key = (x, y, 0)
             grid[key] = val
     return grid
 
@@ -38,8 +32,7 @@ def active(grid, key):
     candidate_neighbors = neighbors(key)
     active_neighbors = 0
     for neighbor in candidate_neighbors:
-        neighbor_key = make_key(neighbor)
-        neighbor_active = grid[neighbor_key] == "#" if grid.has_key(neighbor_key) else False
+        neighbor_active = grid[neighbor] == "#" if grid.has_key(neighbor) else False
         active_neighbors += 1 if neighbor_active else 0
     active = grid[key] == "#" if grid.has_key(key) else False
     new_active = True if (active and (active_neighbors == 2)) or active_neighbors == 3 else False
@@ -47,12 +40,12 @@ def active(grid, key):
 
 def trim_side(grid, axis, direction):
     bound = get_bounds(grid, axis)[direction];
-    face = filter(lambda c: int(c.split(',')[axis]) == bound, grid.keys())
+    face = filter(lambda c: int(c[axis]) == bound, grid.keys())
     while (len(filter(lambda c: grid[c] == '#', face)) == 0):
         for c in face:
             grid.pop(c, None)
         bound = get_bounds(grid, axis)[direction]
-        face = filter(lambda c: int(c.split(',')[axis]) == bound, grid.keys())
+        face = filter(lambda c: int(c[axis]) == bound, grid.keys())
 
 def trim_grid(grid):
     trim_side(grid, 0, 0)
@@ -66,14 +59,13 @@ def trim_grid(grid):
 def epoch(grid):
     new_candidates = candidates(grid)
     new_grid = {}
-    for c in new_candidates:
-        key = make_key(c)
+    for key in new_candidates:
         candidate_active = active(grid, key)
         new_grid[key] = '#' if candidate_active else '.'
     return trim_grid(new_grid)
 
 def get_bounds(grid, x):
-    bounds = sorted(map(lambda key: int(key.split(',')[x]), grid.keys()))
+    bounds = sorted(map(lambda key: key[x], grid.keys()))
     return [bounds[0], bounds[-1]]
 
 def grid_to_string(grid):
@@ -86,8 +78,7 @@ def grid_to_string(grid):
         for y in range(low_y_bound, high_y_bound + 1):
             line_output = ""
             for x in range(low_x_bound, high_x_bound + 1):
-                key = "{},{},{}".format(x, y, z)
-                line_output += grid[key]
+                line_output += grid[(x, y, z)]
             grid_output += line_output + '\n'
         grid_output += '\n'
     return grid_output
@@ -117,9 +108,9 @@ sample = """.#.
 ###
 """
 
-sample_grid = {'0,0,0': '.', '1,0,0': '#', '2,0,0': '.', '0,1,0': '.', '1,1,0': '.', '2,1,0': '#', '0,2,0': '#', '1,2,0': '#', '2,2,0': '#'}
+sample_grid = {(1, 1, 0): '.', (2, 1, 0): '#', (0, 2, 0): '#', (1, 0, 0): '#', (2, 2, 0): '#', (1, 2, 0): '#', (0, 0, 0): '.', (0, 1, 0): '.', (2, 0, 0): '.'}
 
-sample_neighbors = [[0, 1, 2], [0, 1, 3], [0, 1, 4], [0, 2, 2], [0, 2, 3], [0, 2, 4], [0, 3, 2], [0, 3, 3], [0, 3, 4], [1, 1, 2], [1, 1, 3], [1, 1, 4], [1, 2, 2], [1, 2, 4], [1, 3, 2], [1, 3, 3], [1, 3, 4], [2, 1, 2], [2, 1, 3], [2, 1, 4], [2, 2, 2], [2, 2, 3], [2, 2, 4], [2, 3, 2], [2, 3, 3], [2, 3, 4]]
+sample_neighbors = [(0, 1, 2), (0, 1, 3), (0, 1, 4), (0, 2, 2), (0, 2, 3), (0, 2, 4), (0, 3, 2), (0, 3, 3), (0, 3, 4), (1, 1, 2), (1, 1, 3), (1, 1, 4), (1, 2, 2), (1, 2, 4), (1, 3, 2), (1, 3, 3), (1, 3, 4), (2, 1, 2), (2, 1, 3), (2, 1, 4), (2, 2, 2), (2, 2, 3), (2, 2, 4), (2, 3, 2), (2, 3, 3), (2, 3, 4)]
 
 sample_grid_string = 'z=0\n.#.\n..#\n###\n\n'
 
@@ -129,7 +120,7 @@ class Test(unittest.TestCase):
         self.assertEqual(parse_input_to_grid(sample), sample_grid)
 
     def test_neighbors(self):
-        self.assertEqual(neighbors('1,2,3'), sample_neighbors)
+        self.assertEqual(neighbors((1, 2, 3)), sample_neighbors)
 
     def test_grid_to_string(self):
         grid = parse_input_to_grid(sample)
